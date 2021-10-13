@@ -1,0 +1,226 @@
+---
+title: "Cyclistic Case Study - How Does a Bike-Share Navigate Speedy Success?"
+author: "Adarsh Ponukumati"
+date: "9/24/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+## Background
+  • For the duration of this case study, I will be working as a junior data analyst for the marketing analyst team at Cyclistic. Cyclistic is a bike sharing program that features more than 5,800 bicycles and 600 docking stations. The director of marketing, Lily Moreno, believes that the company's success relies on maximizing annual members. Therefore, my team wants to understand how annual and casual members differ from one another. 
+  
+ • Through descriptive analysis and series of data visualizations, I will identify trends and behavior patterns for casual riders while simultaneously providing recommendations to the companys' executives to optimize annual membership.
+  
+  
+  ## Setting up my Environment
+  • Setting up my R environment by loading the 'tidyverse' and loading the packages needed for data cleansing, data manipulation, and data visualization
+```{r, loading packages}
+library(tidyverse)
+library(lubridate)
+library(lessR)
+```
+## Reading in CSV Files
+  • For the purpose of this case study, we will use the 12 months of consumer data made available by Motivate International Inc.   • First, we will read in files that stores the trip data from September 2020 - August 2021
+```{r, Reading csv files}
+september_2020 <- read.csv("September_tripdata.csv")
+october_2020 <- read.csv("October_tripdata.csv")
+november_2020 <- read.csv("November_tripdata.csv")
+december_2020 <- read.csv("December_tripdata.csv")
+january_2021 <- read.csv("January_tripdata.csv")
+february_2021 <- read.csv("February_tripdata.csv")
+march_2021 <- read.csv("March_tripdata.csv")
+april_2021 <- read.csv("April_tripdata.csv")
+may_2021 <- read.csv("May_tripdata.csv")
+june_2021 <- read.csv("June_tripdata.csv")
+july_2021 <- read.csv("July_tripdata.csv")
+august_2021 <- read.csv("August_tripdata.csv")
+```
+  • Now, let us take a look at the data, specifically the column names to make sure they are all they same. This will allow us to combine these 12 data frames into a single one
+
+
+```{r, View }
+colnames(september_2020)
+colnames(october_2020)
+colnames(november_2020)
+colnames(december_2020)
+colnames(january_2021)
+colnames(february_2021)
+colnames(march_2021)
+colnames(april_2021)
+colnames(may_2021)
+colnames(june_2021)
+colnames(july_2021)
+colnames(august_2021)
+```
+ •Now, let us take a look at the data types of each column
+ 
+```{r}
+str(september_2020)
+str(october_2020)
+str(november_2020)
+str(december_2020)
+```
+
+•Let us drop the following columns: (start_station_name, end_station_name, start_station_id, end_station_id),as they are not needed for our analysis
+
+```{r}
+september_2020 <- september_2020 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id))
+october_2020 <- october_2020 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+november_2020 <- november_2020 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+december_2020 <- december_2020 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+january_2021 <- january_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+february_2021 <- february_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+march_2021 <- march_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+april_2021 <- april_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+may_2021 <- may_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+june_2021 <- june_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+july_2021 <- july_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id ))
+august_2021 <- august_2021 %>% select(-c(start_station_name, end_station_name, start_station_id, end_station_id))
+```
+
+•All the column are correct and we can therefore use the bind_rows() function to bind each of the 12 data frames into a singular one
+
+```{r}
+all_trips <- bind_rows(september_2020,october_2020,november_2020,december_2020,january_2021,february_2021, march_2021, april_2021, may_2021, june_2021, july_2021, august_2021)
+```
+
+## Inspect New Dataframe 
+ • Now that we have a new data frame, we should start to inspect the new table
+```{r, Inspect new data frame}
+head(all_trips)
+tail(all_trips)
+str(all_trips)
+dim(all_trips)
+colnames(all_trips)
+nrow(all_trips)
+```
+## Generating New Columns
+ • Let us create a column called ride column, which we will use to calculate the distance traveled for each ride
+```{r, Adding column: Ride Length}
+all_trips <- all_trips %>% add_column(ride_length = NA, .after = "ended_at")
+```
+ • Subsequently, we will create a date, month, day, and year column which would allow us to aggregate data at the ride level
+```{r, Adding date, month, day, and year as columns in our dataframe}
+all_trips <- all_trips %>% 
+  add_column(date = NA, .after = "started_at")
+  
+all_trips <- all_trips %>% 
+  add_column(month = NA, .after = "date") %>% 
+  add_column(day = NA, .after = "month") %>% 
+  add_column(year = NA, .after = "day")
+```
+ • Now, let us fill in the columns with the appropriate data --> we will be using the lubridate package
+```{r, Filling in our 4 columns}
+all_trips$date <- as.Date(all_trips$started_at)
+all_trips$month <- format(as.Date(all_trips$date), "%m")
+all_trips$day <- format(as.Date(all_trips$date), "%d")
+all_trips$year <- format(as.Date(all_trips$date), "%Y")
+```
+ • To calculate the ride_length for all the rides, we will use the difftime() function
+```{r, Calculating ride length with difftime() function}
+all_trips$ride_length <- difftime(all_trips$ended_at, all_trips$started_at, units = "mins")
+str(all_trips)
+```
+ • In order to perform calculations on ride length, we need to change the data type from a "difftime" to a numeric value
+```{r, Change the data type of the column ride length and check to see if it is numeric}
+all_trips$ride_length <- as.numeric(as.character(all_trips$ride_length))
+is.numeric(all_trips$ride_length)
+
+```
+
+```{r, Summary of dataframe- alltrips --> let us take a closer look at ride duration column}
+summary(all_trips)
+```
+
+• When we take a closer look at the minimum and maximum values for the ride length column, we see that we get a negative number and an extreme positive outlier.
+
+## Process Data from Dirty to Clean
+ • Before conducting descriptive analysis, we need to remove rows in which the ride_length is Null or negative. 
+  For simplicity purposes, I will only be focusing on the ride durations that lasted at least a minute and no greater than 1080 minutes(18 hours).
+ • There are multiple rows that include entries where bikes were checked as regular maintenence and for quality, we need to subsequently omit these rows
+ • Last, in my analysis, I only want to use classic bikes and electric bikes and remove any records where the "rideable type" was a "docked bike"
+```{r, PROCESSING DATA FROM DIRTY TO CLEAN}
+alltrips_v2 <- all_trips[!(all_trips$rideable_type == "docked_bike"|all_trips$ride_length < 1|all_trips$ride_length > 1080),]
+
+table(all_trips$member_casual)
+```
+# Descriptive Analysis
+```{r, DESCRIPTIVE ANALYSIS}
+aggregate(alltrips_v2$ride_length ~ alltrips_v2$member_casual, FUN = mean)
+aggregate(alltrips_v2$ride_length ~ alltrips_v2$member_casual, FUN = median)
+
+aggregate(alltrips_v2$ride_length ~ alltrips_v2$member_casual, FUN = min)
+aggregate(alltrips_v2$ride_length ~ alltrips_v2$member_casual, FUN = max)
+
+summary(alltrips_v2)
+table(alltrips_v2$rideable_type)
+
+
+```
+• Adding another column, day of the week, in order to perform a variety of descrptive analysis and data vizualizations
+```{r, Adding day of week column to dataset and filling in appropriate values}
+alltrips_v2 <- alltrips_v2 %>% add_column(day_of_week = NA, .after = "year")
+alltrips_v2$day_of_week <- format(as.Date(alltrips_v2$date), '%a')
+```
+
+## Data Visualization 1: Ratio of Casual to Members
+```{r, Pie Chart representing the ratio of casual to members}
+PieChart(data = alltrips_v2, member_casual, main = "Ratio of Casual to Members")
+```
+## Data Visualization 2: Average Ride Length for Each Day of the Week
+```{r, Average Ride Length Vizualization}
+alltrips_v2 %>%
+  mutate(Weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, Weekday) %>% 
+  summarise(mean_ride_length = mean(ride_length)) %>% 
+  ggplot(aes(x= Weekday, y = mean_ride_length, fill = member_casual)) + geom_col(position = "dodge") +
+  labs(title = 'Average Ride Length for Each Day of the Week', subtitle = "Casual vs Member", caption = "Data made Available by Motivate International Inc")
+
+```
+## Data Visualization 3: Total Number of Rides for Each Customer for Every Day of the Week
+```{r, Total Rides Each Day of Week}
+alltrips_v2 %>% 
+  mutate(Weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, Weekday) %>% 
+  summarise(total_number_of_rides = n()) %>% 
+  arrange(Weekday) %>% 
+  ggplot(aes(x = Weekday, y = total_number_of_rides, fill = member_casual)) + geom_col(position = "dodge") + 
+  labs(title = 'Total Number of Rides for Each Day of the Week', subtitle = "Casual vs Member", caption = "Data made Available by Motivate International Inc")
+```
+## Data Visualization 4: Number of Total Rides for Electric vs Classic Bikes
+```{r, Total Bike Rides for Each Type of Bike}
+alltrips_v2 %>% 
+  group_by(rideable_type, member_casual) %>% 
+  summarise(total_number_of_rides = n()) %>% 
+  ggplot(aes(x = member_casual, y = total_number_of_rides, fill = rideable_type)) + geom_col(position = "dodge") +
+  labs(title = 'Total Number of Rides for Each Type of Bike', subtitle = "Casual vs Member", caption = "Data made Available by Motivate International Inc")
+```
+## Data Visualization 5: Number of Total Rides Per Month for Each Member
+```{r, Total Number of Rides Each Month}
+alltrips_v2 %>% 
+  group_by(month, member_casual) %>% 
+  summarise(total_number_of_rides = n()) %>% 
+  arrange(month) %>% 
+  ggplot(aes(x = month, y = total_number_of_rides, fill = member_casual)) + geom_col(position = "dodge") +
+  labs(title = 'Total Number of Rides for Each Type of Rider', subtitle = "By Month", caption = "Data made Available by Motivate International Inc")
+  
+```
+## Data Visualization 6: Total Number of Rides for Each Type of Bike
+```{r, Total Rides for Each Bike Per Month}
+alltrips_v2 %>% 
+  group_by(month, rideable_type) %>% 
+  summarise(total_number_of_rides = n()) %>% 
+  arrange(month) %>% 
+  ggplot(aes(x = month, y = total_number_of_rides, fill = rideable_type)) + geom_col(position = "dodge") + 
+  labs(title = 'Total Number of Rides for Each Type of Bike', subtitle = "Electric vs Classic", caption = "Data made Available by Motivate International Inc")
+  
+```
+
+## Casual Riders Analysis
+  1) On average, casual riders spend more time riding on weekends than any other day of the week. After taking a deep dive into the series of vizualizations, we can also come to the conclusion that causal members tend to ride longer than annual members, most likely due to leisure activities
+  2) Casual riders tend to ride most during the summer months. The delta between the number of rides for casual members during the summer and winter months is massive
+
+
+## Recommendation to Cyclistics' Executives
+  1) Assemble a membership plan targeted towards annual members that allow for reward points to be awarded for rides during the summer. After accumalating a certain amount of reward points, a user may recieve up to a 50% discount of a single year's membership and some form of discount towards merchandise or other company products
+  2) Weekend ride duration cap for casual members - enforce a hard cap on the ride duration for day pass riders during the weekend; any rider that exceeds the set cap will have to pay for each additional minute.
